@@ -1,0 +1,44 @@
+controller:
+  adapter:
+    type: http-server
+    port: ${env.PORT | 8080}
+    base_path: /api
+  webui:
+    driver: gradio
+    port: ${env.SERVER_PORT | 8081}
+
+workflows:
+  - id: generate
+    default: true
+    title: Song from Lyrics
+    description: Writes a full song with vocals and accompaniment from a style prompt and tagged lyrics, as 44.1 kHz stereo audio
+    job:
+      component: minimax-music3
+      action: generate
+      input: ${input}
+      output: ${output}
+
+    output: ${jobs.__job__.output}
+
+components:
+  - id: minimax-music3
+    type: model
+    task: music-generation
+    driver: custom
+    family: minimax-music3
+    model: ${env.MINIMAX_MUSIC3_MODEL | MiniMaxAI/MiniMax-Music3}
+    device: ${env.DEVICE | cuda}
+    cpu_offload: model
+    max_concurrent_count: 1
+    runtime:
+      type: virtualenv
+      path: .venv/minimax-music3
+    actions:
+      - id: generate
+        method: generate
+        prompt: ${input.style as text}
+        lyrics: ${input.lyrics as text}
+        seed: ${input.seed as integer | 0}
+        params:
+          duration: ${input.duration as integer | 180}
+        output: ${result as audio/wav}
